@@ -10,11 +10,9 @@ async function pool() {
     return connectionPool;
 }
 
-let queryDatabase = async ( query, params ) => {
+let queryDatabase = async ( conn, query, params ) => {
     try {
-        let conn = await pool();
-        await conn.query( query, params );
-        let result = await conn.query( query, params );
+        let result = await conn.query( query, [ params, ] );
         // console.debug( result);
         return result;
     } catch ( error ) {
@@ -23,47 +21,57 @@ let queryDatabase = async ( query, params ) => {
     }
 };
 
-let populateTable = async ( query, values ) => {
-    try {
-        let result = await queryDatabase( query, [ values, ] );
-        console.info( `Table populated. ${ result.affectedRows } records inserted` );
-    } catch ( error ) {
-        console.error( `Error: ${ error }` );
-    }
+let populateTables = async ( conn ) => {
+    await Promise.all( [
+        queryDatabase( conn, queries.populatePrivileges, defaultValues.privileges ),
+        queryDatabase( conn, queries.populateUsers, defaultValues.users ),
+    ] );
+    console.info( "Users and Privileges tables now populated with defaults" );
+
+    await queryDatabase( conn, queries.addPrivileges, defaultValues.usersPrivileges );
+    console.info( "Privileges-Users relations table populated with defaults" );
 };
 
-let createAndPopulateTables = async () => {
-    if ( await queryDatabase( queries.createPrivilegesTable ) ) {
-        console.info( "Privileges table created" );
-    }
-    
-    if ( await queryDatabase( queries.createUsersTable ) ) {
-        console.info( "Users table created" );
-    }
-    populateTable( queries.populatePrivileges, defaultValues.privileges );
-    populateTable( queries.populateUsers, defaultValues.users );
+let createTables = async conn => {
+    await Promise.all( [
+        queryDatabase( conn, queries.createPrivilegesTable ),
+        queryDatabase( conn, queries.createUsersTable ),
+    ] );
+    console.info( "Users and Privileges tables created" );
+
+    await queryDatabase( conn, queries.createUsersPrivilegesTable );
+    console.info( "Privileges-Users relations table created" );
+};
+
+let dropAndRecreateDatabase = async ( conn ) => {
+    await queryDatabase( conn, queries.dropDatabase );
+    console.info( `${ config.database } database dropped` );
+    await queryDatabase( conn, queries.createDatabase );
+    console.info( `${ config.database } database created` );
+    // await conn.query( `USE ${ config.database }` );
+};
+
+let initializeTables = async () => {
+    let conn = await pool();
+    await createTables( conn );
+    populateTables( conn );
 };
 
 let initializeDatabase = async () => {
-    let databaseName = config.database;
-    delete config.database;
-    let conn = await mysql.createConnection( config );
-    try {
-        await conn.query( queries.dropDatabase );
-        console.info( `${ databaseName } database dropped` );
+    let databaseConfig = {
+        host: config.host,
+        user: config.user,
+        password: config.password,
+    };
+    let conn = await mysql.createConnection( databaseConfig );
+    await dropAndRecreateDatabase( conn );
+    conn.end();
 
-    } catch ( error ) {
-        console.error( `Couldn't execute query: ${ error.sql }` );
-        console.error( `Got this message from the DB: ${ error.sqlMessage }` );
-    }
-    await conn.query( queries.createDatabase );
-    console.info( `${ databaseName } database created` );
-
-    config.database = databaseName;
-    await conn.query( `USE ${ config.database }` );
-    await createAndPopulateTables();
-
+    conn = await pool();
+    initializeTables( conn );
 };
+
+initializeDatabase();
 
 module.exports = {
     initializeDatabase: initializeDatabase,

@@ -3,7 +3,7 @@ import { pool, } from "../database";
 class UsersController {
     async queryDatabase( ctx, query, params ) {
         try {
-            console.debug( pool );
+            // console.debug( pool );
             let conn = await pool();
             let result = await conn.query( query, params );
             ctx.body = result;
@@ -14,7 +14,13 @@ class UsersController {
     }
 
     async index( ctx ) {
-        const query = "SELECT * FROM users";
+        const query = [
+            "SELECT U.name, GROUP_CONCAT(P.privilege) privileges, U.description",
+            "FROM users U, privileges P, users_privileges inter",
+            "WHERE U.id = inter.user_id AND P.id = inter.privilege_id",
+            "GROUP BY U.name, U.description",
+        ].join(" ");
+        // const query = "SELECT * FROM users";
         await this.queryDatabase( ctx, query );
     }
 
@@ -31,29 +37,65 @@ class UsersController {
         const params = ctx.params;
         if ( !params.id ) { ctx.throw( 400, "INVALID_DATA" ); }
 
-        const query = "SELECT * FROM users WHERE name = ?";
+        let query = "SELECT * FROM users WHERE id = ?";
+        if ( ctx.query.privileges ) {
+            query = [
+                "SELECT U.name, GROUP_CONCAT(P.privilege) privileges, U.description",
+                "FROM users U, privileges P, users_privileges inter",
+                "WHERE U.id = ? AND U.id = inter.user_id AND P.id = inter.privilege_id",
+                "GROUP BY U.name, U.description",
+            ].join(" ");
+        }
         await this.queryDatabase( ctx, query, [ params.id, ] );
     }
 
     async update( ctx ) {
         const params = ctx.params;
         const request = ctx.request.body;
-        console.debug( ctx.request.body );
+        // console.debug( ctx.request.body );
 
-        //Make sure they've specified a username
-        if ( !params.id || !request.desc ) { ctx.throw( 400, "INVALID_DATA" ); }
-
-        const query = "UPDATE users SET description = ? WHERE name = ?";
-        const description = request.desc;
-        await this.queryDatabase( ctx, query, [ description, params.id, ] );
+        if ( !params.id || ( !request.desc && !request.name ) ) {
+            ctx.throw( 400, "INVALID_DATA" );
+        }
+        const updateClause = [];
+        const updateValues = [];
+        if ( request.desc ) {
+            updateClause.push( "description = ?" );
+            updateValues.push( request.desc );
+        }
+        if ( request.name ) {
+            if ( updateClause.length > 0 ) { updateClause.push( "," ); }
+            updateClause.push( "name = ?" );
+            updateValues.push( request.name );
+        }
+        updateValues.push( params.id );
+        const query = `UPDATE users SET ${ updateClause.join( " " ) } WHERE id = ?`;
+        await this.queryDatabase( ctx, query, updateValues );
     }
 
-    async delete( ctx ) {
+    async delete( ctx, table, id ) {
+        const tableName = table || "users";
+        const idColumn = id || "id";
         const params = ctx.params;
         if ( !params.id ) { ctx.throw( 400, "INVALID_DATA" ); }
 
-        const query = "DELETE FROM users WHERE name = ?";
+        const query = `DELETE FROM ${ tableName } WHERE ${ idColumn } = ?`;
         await this.queryDatabase( ctx, query, [ params.id, ] );
+    }
+
+    async updatePrivileges( ctx ) {
+        const params = ctx.params;
+        const request = ctx.request.body;
+        if ( !params.id ) { ctx.throw( 400, "INVALID_DATA" ); }
+        if ( !Array.isArray( request.priv ) ) {
+            ctx.throw( 400, "INVALID_DATA: Privileges should be an Array" );
+        }
+
+        await this.delete( ctx, "users_privileges", "user_id" );
+
+        const insertQuery = "INSERT INTO users_privileges (user_id, privilege_id) VALUES ?";
+        const values = [ request.priv.map( privId => [ params.id, privId, ] ), ];
+        await this.queryDatabase( ctx, insertQuery, values );
     }
 }
 

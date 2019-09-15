@@ -26,4 +26,8 @@ router.delete( "/api/users/:id", async ctx => {
     await usersController.delete( ctx );
 } );
 
+router.post( "/api/users/priv/:id", async ctx => {
+    await usersController.updatePrivileges( ctx );
+} );
+
 export default router;

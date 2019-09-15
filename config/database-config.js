@@ -1,23 +1,3 @@
-// const HOST = "localhost";
-// const USER = "koa";
-// const PASS = "skeleton";
-// const DB_NAME = "koa_skeleton";
-// let db;
-
-// async function connectToDatabase() {
-//     db = await mysql.createPool( {
-//         host: HOST,
-//         user: USER,
-//         password: PASS,
-//         database: DB_NAME,
-//     } );
-//     console.info( "Database Connected!" );
-// }
-
-// module.exports = {
-//     connectToDatabase: connectToDatabase,
-//     db: db,
-// };
 const config = {
     host: "localhost",
     user: "koa",
@@ -28,10 +8,32 @@ const config = {
 const queries = {
     dropDatabase: `DROP DATABASE ${ config.database }`,
     createDatabase: `CREATE DATABASE ${ config.database }`,
-    createPrivilegesTable: "CREATE TABLE IF NOT EXISTS privileges (id INT AUTO_INCREMENT PRIMARY KEY, privilege VARCHAR(255) UNIQUE)",
-    createUsersTable: "CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255) UNIQUE, description VARCHAR(255))",
+    createPrivilegesTable: [
+        "CREATE TABLE IF NOT EXISTS privileges",
+        "(id INT AUTO_INCREMENT PRIMARY KEY,",
+        "privilege VARCHAR(255) UNIQUE)",
+    ].join(" "),
+    createUsersTable: [
+        "CREATE TABLE IF NOT EXISTS users",
+        "(id INT AUTO_INCREMENT PRIMARY KEY,",
+        "name VARCHAR(255) UNIQUE, description VARCHAR(255))",
+    ].join(" "),
+    createUsersPrivilegesTable: [
+        "CREATE TABLE IF NOT EXISTS users_privileges",
+        "(user_id INT NOT NULL,",
+        "privilege_id INT NOT NULL,",
+        "FOREIGN KEY (user_id) REFERENCES users(id),",
+        "FOREIGN KEY (privilege_id) REFERENCES privileges(id))",
+    ].join(" "),
     populatePrivileges: "INSERT INTO privileges (privilege) VALUES ?",
     populateUsers: "INSERT INTO users (name, description) VALUES ?",
+    addPrivileges: "INSERT INTO users_privileges (user_id, privilege_id) VALUES ?",
+    getUsersPrivileges: [
+        "SELECT U.name, GROUP_CONCAT(P.privilege) privileges, U.description",
+        "FROM users U, privileges P, users_privileges inter",
+        "WHERE AND U.id = inter.user_id AND P.id = inter.privilege_id",
+        "GROUP BY U.name, U.description",
+    ].join(" "),
 };
 
 const defaultValues = {
@@ -52,6 +54,15 @@ const defaultValues = {
         [ "RolesHandler", "Limited to roles", ],
         [ "DataObserver", "", ],
         [ "SuperUser", "", ],
+    ],
+    usersPrivileges: [
+        [ 1, 7, ],
+        [ 2, 1, ], [ 2, 2, ], [ 2, 4, ],
+        [ 3, 1, ], [ 3, 2, ], [ 3, 4, ],
+        [ 4, 1, ], [ 4, 2, ], [ 4, 4, ],
+        [ 5, 4, ], [ 5, 5, ],
+        [ 6, 1, ],
+        [ 7, 2, ], [ 7, 3, ],
     ],
 };
 export default config;
