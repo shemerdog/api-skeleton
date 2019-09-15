@@ -1,22 +1,24 @@
-// app.js
-const Koa = require( "koa" );
-const Router = require( "koa-router" );
-const logger = require( "koa-logger" );
+import Koa from "koa";
+import logger from "koa-logger";
+import bodyParser from "koa-body";
 
+// Local Imports
+import basicRouter from "./routes/basic-routes";
+import usersRouter from "./routes/users-routes";
+import privilegesRouter from "./routes/privileges-routes";
+
+// Initialize app
 const app = new Koa();
 app.use( logger() );
+app.use( bodyParser() );
 
-const router = new Router();
-router.get( "/", async ctx => {
-    ctx.body = "Hello World";
-} );
-router.get( "/someErrorOnTheServer", async ctx => {
-    ctx.body = "Hello World";
-    throw SyntaxError( "There is something wrong with your syntax" );
-} );
-
-app.use( router.routes() );
-app.use( router.allowedMethods() );
+// Initialize Routes
+app.use( basicRouter.routes() );
+app.use( basicRouter.allowedMethods() );
+app.use( usersRouter.routes() );
+app.use( usersRouter.allowedMethods() );
+app.use( privilegesRouter.routes() );
+app.use( privilegesRouter.allowedMethods() );
 
 app.use( async ( ctx, next ) => {
     try {

@@ -37,7 +37,6 @@ describe( "Basic routes", () => {
             .get( "/someErrorOnTheServer" )
             .end( ( err, res ) => {
                 expect( res ).to.have.status( 500 );
-                // expect( res.text ).equal( "Hello World" );
                 done();
             } );
     } );
