@@ -16,7 +16,8 @@ const queries = {
     createUsersTable: [
         "CREATE TABLE IF NOT EXISTS users",
         "(id INT AUTO_INCREMENT PRIMARY KEY,",
-        "name VARCHAR(255) UNIQUE, description VARCHAR(255))",
+        "name VARCHAR(255) UNIQUE,",
+        "description VARCHAR(255))",
     ].join(" "),
     createUsersPrivilegesTable: [
         "CREATE TABLE IF NOT EXISTS users_privileges",

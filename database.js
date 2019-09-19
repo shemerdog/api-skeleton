@@ -71,6 +71,7 @@ let initializeDatabase = async () => {
     initializeTables( conn );
 };
 
+// Comment out this line for 'saving-changes\production' mode
 initializeDatabase();
 
 module.exports = {
