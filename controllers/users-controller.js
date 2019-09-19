@@ -1,12 +1,18 @@
 import { pool, } from "../database";
+import { queries, } from "../config/database-config";
 
 class UsersController {
-    async queryDatabase( ctx, query, params ) {
+    async queryDatabase( ctx, query, params, single = false ) {
         try {
-            // console.debug( pool );
             let conn = await pool();
             let result = await conn.query( query, params );
-            ctx.body = result;
+            if ( single && result[ 0 ] ) {
+                ctx.body = result[ 0 ];
+            }
+            else {
+                ctx.body = result;
+            }
+            // console.debug( result );
         } catch ( error ) {
             console.error( error );
             ctx.throw( 400, "INVALID_DATA" );
@@ -14,13 +20,8 @@ class UsersController {
     }
 
     async index( ctx ) {
-        const query = [
-            "SELECT U.name, GROUP_CONCAT(P.privilege) privileges, U.description",
-            "FROM users U, privileges P, users_privileges inter",
-            "WHERE U.id = inter.user_id AND P.id = inter.privilege_id",
-            "GROUP BY U.name, U.description",
-        ].join(" ");
         // const query = "SELECT * FROM users";
+        const query = queries.getUsersPrivileges;
         await this.queryDatabase( ctx, query );
     }
 
@@ -35,18 +36,19 @@ class UsersController {
 
     async read( ctx ) {
         const params = ctx.params;
+        console.debug( params );
         if ( !params.id ) { ctx.throw( 400, "INVALID_DATA" ); }
 
         let query = "SELECT * FROM users WHERE id = ?";
-        if ( ctx.query.privileges ) {
+        if ( parseInt( params.privileges ) ) {
             query = [
-                "SELECT U.name, GROUP_CONCAT(P.privilege) privileges, U.description",
+                "SELECT U.id, U.name, GROUP_CONCAT(P.privilege) privileges, U.description",
                 "FROM users U, privileges P, users_privileges inter",
                 "WHERE U.id = ? AND U.id = inter.user_id AND P.id = inter.privilege_id",
-                "GROUP BY U.name, U.description",
-            ].join(" ");
+                "GROUP BY U.id, U.name, U.description",
+            ].join( " " );
         }
-        await this.queryDatabase( ctx, query, [ params.id, ] );
+        await this.queryDatabase( ctx, query, [ params.id, ], true );
     }
 
     async update( ctx ) {
@@ -59,9 +61,9 @@ class UsersController {
         }
         const updateClause = [];
         const updateValues = [];
-        if ( request.desc ) {
+        if ( request.description ) {
             updateClause.push( "description = ?" );
-            updateValues.push( request.desc );
+            updateValues.push( request.description );
         }
         if ( request.name ) {
             if ( updateClause.length > 0 ) { updateClause.push( "," ); }
@@ -70,6 +72,8 @@ class UsersController {
         }
         updateValues.push( params.id );
         const query = `UPDATE users SET ${ updateClause.join( " " ) } WHERE id = ?`;
+        console.info( query );
+        console.info( updateValues );
         await this.queryDatabase( ctx, query, updateValues );
     }
 

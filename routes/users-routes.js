@@ -14,7 +14,7 @@ router.post( "/api/users", async ctx => {
     await usersController.create( ctx );
 } );
 
-router.get( "/api/users/:id", async ctx => {
+router.get( "/api/users/:privileges/:id", async ctx => {
     await usersController.read( ctx );
 } );
 
@@ -26,7 +26,7 @@ router.delete( "/api/users/:id", async ctx => {
     await usersController.delete( ctx );
 } );
 
-router.post( "/api/users/priv/:id", async ctx => {
+router.put( "/api/users/priv/:id", async ctx => {
     await usersController.updatePrivileges( ctx );
 } );
 
